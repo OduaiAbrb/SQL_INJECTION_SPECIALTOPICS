@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Special Topics · SQL Injection Example</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+</head>
+<body>
+    <header>
+        <h1>Special Topics: SQL Injection Example</h1>
+        <p>
+            A visually guided demo showing how unsafe string concatenation lets attackers bypass
+            authentication and tamper with data.
+        </p>
+        <button class="modal-trigger" type="button" data-modal="demoModal">Show Quick Tour</button>
+    </header>
+
+    <main>
+        <section class="database-panel">
+            <h2>Live Database View</h2>
+            <p class="subtitle">Everything on the left reflects what the vulnerable code is doing.</p>
+
+            <div class="database-card query-card">
+                <h3>Injection Storyboard</h3>
+                {% if last_query.text %}
+                <p class="query">{{ last_query.text }}</p>
+                <p class="note"><strong>Rows touched:</strong> {{ last_query.rows }} · {{ last_query.note }}</p>
+                <p class="explanation">{{ last_query.explanation }}</p>
+                {% else %}
+                <p class="placeholder">Submit a form to see the raw SQL that is executed and learn what the payload did.</p>
+                {% endif %}
+            </div>
+
+            <div class="tip">
+                <strong>Try this:</strong> set username to <code>' OR 1=1 --</code> with any password. The login will succeed even though
+                no such account exists, because the SQL becomes always true. More payload ideas live on the right.
+            </div>
+
+            <div class="database-card">
+                <h3>Users Table Snapshot</h3>
+                <div class="table-scroll">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Username</th>
+                                <th>Password (stored as plain text)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for user in users %}
+                            <tr>
+                                <td>{{ user["username"] }}</td>
+                                <td>{{ user["password"] }}</td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="2" class="placeholder">No users yet. Try creating one on the right.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <section class="forms-panel">
+            <h2>Authentication Playground</h2>
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <ul class="flash-messages">
+                        {% for category, message in messages %}
+                            <li class="{{ category }}">{{ message }}</li>
+                        {% endfor %}
+                    </ul>
+                {% endif %}
+            {% endwith %}
+
+            <div class="card login-visual {{ login_result.status }}">
+                <div class="monitor-header">
+                    <h3>Breach Monitor</h3>
+                    <p class="badge">{{ login_result.status }}</p>
+                </div>
+                <p class="login-headline">{{ login_result.headline }}</p>
+                <p class="help-text">{{ login_result.detail }}</p>
+
+                {% if login_result.rows %}
+                <div class="table-scroll leak-table-wrapper">
+                    <table class="leak-table">
+                        <thead>
+                            <tr>
+                                <th>Leaked username</th>
+                                <th>Plaintext password</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in login_result.rows %}
+                            <tr>
+                                <td>{{ row.username }}</td>
+                                <td>{{ row.password }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="placeholder">No data leaked yet. Successful attacks will dump credentials here.</p>
+                {% endif %}
+            </div>
+
+            <div class="card login-card">
+                <div class="card-heading">
+                    <h3>SQL Login Console</h3>
+                    <p>Send raw text straight into the query builder. If your payload returns rows, the monitor glows green.</p>
+                </div>
+                <form action="{{ url_for('login') }}" method="post">
+                    <label for="username">Username</label>
+                    <input id="username" name="username" placeholder="e.g. ' OR 1=1 --" required />
+
+                    <label for="password">Password</label>
+                    <input id="password" type="password" name="password" placeholder="anything" />
+
+                    <button type="submit">Launch Attack</button>
+                </form>
+                <p class="help-text">
+                    Accounts are already populated on the left. Use the payload lab below or try to discover your own bypass.
+                </p>
+            </div>
+
+            <div class="card payload-card">
+                <h3>Injection Payload Lab</h3>
+                <ul class="payload-list">
+                    {% for payload in payload_examples %}
+                    <li>
+                        <div class="payload-title">{{ payload.title }}</div>
+                        <div class="payload-body">
+                            <span>Username:</span>
+                            <code>{{ payload.username }}</code>
+                        </div>
+                        <div class="payload-body">
+                            <span>Password:</span>
+                            <code>{{ payload.password }}</code>
+                        </div>
+                        <p class="payload-effect">{{ payload.effect }}</p>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </section>
+    </main>
+
+    <div id="demoModal" class="modal">
+        <div class="modal-content">
+            <button class="close-button" type="button" aria-label="Close modal">&times;</button>
+            <h3>How to earn that A+</h3>
+            <p>1. Review the user table on the left to understand what data exists.</p>
+            <p>2. Copy any payload from the Injection Lab or type your own into the SQL Login Console.</p>
+            <p>3. Watch the Breach Monitor glow green when rows leak, then explain how parameterized queries would stop it.</p>
+            <p class="modal-highlight">Tip: Try chaining payloads together to show both data exfiltration <em>and</em> privilege escalation.</p>
+        </div>
+    </div>
+
+    <script>
+        const trigger = document.querySelector('.modal-trigger');
+        const modal = document.getElementById('demoModal');
+        const closeBtn = modal.querySelector('.close-button');
+
+        trigger?.addEventListener('click', () => {
+            modal.classList.add('show');
+        });
+
+        closeBtn?.addEventListener('click', () => {
+            modal.classList.remove('show');
+        });
+
+        modal?.addEventListener('click', (event) => {
+            if (event.target === modal) {
+                modal.classList.remove('show');
+            }
+        });
+    </script>
+</body>
+</html>
