@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CampusOne Portal · XSS Demo</title>
+    <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+    <div class="grid-background" aria-hidden="true"></div>
+
+    <header class="hero">
+        <p class="eyebrow">CampusOne Portal</p>
+        <h1>Faculty Updates Board</h1>
+        <p class="lede">
+            This is what staff see every day. The comment box pushes raw HTML straight into the page, so one post can plant a phishing dialog inside the real site.
+        </p>
+        <div class="hero-actions">
+            <button id="runScenario" type="button">Auto-load attack</button>
+            <a href="/" class="text-link">Back to SQL lab</a>
+        </div>
+        <p class="payload-hint">
+            Copy this snippet into the feed to see it happen: <code>&lt;img src=x onerror="openPhish('Re-auth to keep grading')"&gt;</code>
+        </p>
+    </header>
+
+    <main>
+        <section class="lab simplified">
+            <div class="lab-info">
+                <h2>Post a notice</h2>
+                <p>
+                    Everything below uses <code>innerHTML</code>. Paste markup, hit submit, and the browser runs it instantly—no warning banners, no pop-ups blocked.
+                </p>
+                <button id="payloadButton" type="button">Fill form with payload</button>
+            </div>
+
+            <div class="lab-panel">
+                <form id="commentForm">
+                    <label for="name">Display name</label>
+                    <input id="name" name="name" placeholder="e.g. Registrar" required />
+
+                    <label for="message">Message</label>
+                    <textarea id="message" name="message" rows="3" placeholder="Share some news..."></textarea>
+
+                    <div class="form-actions">
+                        <button type="submit">Post Comment</button>
+                        <button type="reset" class="ghost">Clear</button>
+                    </div>
+                </form>
+
+                <div class="feed">
+                    <div class="feed-header">
+                        <h3>Live timeline</h3>
+                        <p>Newest posts appear on top. Whatever renders here is exactly what victims see.</p>
+                    </div>
+                    <ul id="feedList">
+                        <li>
+                            <span class="author">TownHallBot</span>
+                            <p>Welcome to the Special Topics showcase!</p>
+                        </li>
+                        <li>
+                            <span class="author">Coach Lee</span>
+                            <p>Congrats to the robotics team for placing first.</p>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <div class="phish-overlay" id="phishOverlay">
+        <div class="phish-modal">
+            <button class="close" type="button" aria-label="Close" data-close>&times;</button>
+            <div class="phish-brand">CampusOne Identity</div>
+            <p class="alert">Session timed out</p>
+            <p id="phishMessage">Confirm your password to keep working.</p>
+            <label>Email</label>
+            <input value="student@campus.edu" readonly />
+            <label>Password</label>
+            <input type="password" placeholder="Enter password" />
+            <button type="button" class="confirm" data-close>Continue</button>
+            <small>This dialog is running because of unescaped HTML.</small>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

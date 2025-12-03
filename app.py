@@ -1,18 +1,17 @@
 import os
 import sqlite3
-from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import Flask, render_template, request, redirect, url_for, flash, send_from_directory
 
 app = Flask(__name__)
 app.secret_key = "special-topics-demo"
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 DB_PATH = os.path.join(BASE_DIR, "special_topics.db")
+XSS_DIR = os.path.join(BASE_DIR, "xss_phishing_site")
 
 last_query = {
     "text": "",
     "rows": 0,
-    "note": "Use the forms to generate SQL logs and see how injection works.",
-    "explanation": "Your injection story will appear here after you submit the SQL Login Console."
 }
 
 login_result = {
@@ -69,25 +68,6 @@ def get_db_connection():
     conn.row_factory = sqlite3.Row
     return conn
 
-def describe_injection(username: str, password: str) -> str:
-    payload = f"{username} {password}".lower()
-    if not username and not password:
-        return "No credentials supplied, so SQL executed with empty strings."
-    if "1=1" in payload:
-        return "The payload injects OR 1=1, forcing the WHERE clause to always evaluate true."
-    if "--" in username or "--" in password:
-        return "It uses the -- comment marker to chop off the remainder of the query, skipping password checks."
-    if "limit" in payload:
-        return "Adding LIMIT restricts output to a set number of rows, often to steal just the first admin account."
-    if "'='" in payload or "\"=\"" in payload:
-        return "The payload repeats conditions like '1'='1', another way to satisfy the WHERE clause universally."
-    if "admin" in username.lower() and "--" in username:
-        return "This targets the admin username then comments out the password requirement, logging in without knowing the secret."
-    if " or " in payload:
-        return "The injection adds a custom OR clause to bypass normal credential checks."
-    return "Looks like a standard login attempt with no obvious injection keywords."
-
-
 def init_db():
     conn = get_db_connection()
     conn.execute(
@@ -123,6 +103,31 @@ def index():
         payload_examples=PAYLOAD_EXAMPLES,
     )
 
+
+@app.route("/xss-demo/")
+def xss_demo_index():
+    return send_from_directory(XSS_DIR, "index.html")
+
+
+@app.route("/xss-demo")
+def xss_demo_redirect():
+    return redirect(url_for("xss_demo_index"))
+
+
+@app.route("/xss-demo/<path:asset>")
+def xss_assets(asset):
+    return send_from_directory(XSS_DIR, asset)
+
+
+@app.route("/xss_phishing_site/")
+def legacy_xss_index():
+    return send_from_directory(XSS_DIR, "index.html")
+
+
+@app.route("/xss_phishing_site/<path:asset>")
+def legacy_xss_assets(asset):
+    return send_from_directory(XSS_DIR, asset)
+
 @app.route("/signup", methods=["POST"])
 def signup():
     global last_query
@@ -143,16 +148,12 @@ def signup():
         last_query = {
             "text": "INSERT INTO users (username, password) VALUES (?, ?)",
             "rows": 1,
-            "note": "Parameterized query executed safely—no injection possible here.",
-            "explanation": "Even if the user supplied SQL keywords, the placeholders ensured the database treated it purely as data.",
         }
         flash("New account created safely! Now try logging in, even with malicious input.", "success")
     except sqlite3.IntegrityError:
         last_query = {
             "text": "INSERT INTO users (username, password) VALUES (?, ?)",
             "rows": 0,
-            "note": "Signup failed because the username already exists.",
-            "explanation": "Attempted to insert a duplicate username, so SQLite rejected it due to the UNIQUE constraint.",
         }
         flash("That username already exists.", "error")
     finally:
@@ -181,8 +182,6 @@ def login():
     last_query = {
         "text": vulnerable_query,
         "rows": len(rows),
-        "note": "This login uses string concatenation and is vulnerable to SQL injection.",
-        "explanation": describe_injection(username, password),
     }
 
     sanitized_rows = [
